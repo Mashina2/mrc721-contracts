@@ -22,9 +22,9 @@ contract MRC721Minter is Ownable {
   modifier checkSig(address _to, uint256 _count, bytes calldata sig){
     if(!mintEnabled){
       require(mintWithSigEnabled, "!enabled");
-      
+
       bytes32 hash = keccak256(abi.encodePacked(
-            _to, 
+            _to,
             _count
       ));
       hash = hash.toEthSignedMessageHash();
@@ -58,6 +58,30 @@ contract MRC721Minter is Ownable {
 
   function price(uint _count) public view returns (uint256) {
     return _count * unitPrice;
+  }
+
+  function updateUnitPrice(uint256 _unitPrice) public onlyOwner {
+    unitPrice = _unitPrice;
+  }
+
+  function updateMintEnabled(bool enable) public onlyOwner {
+    mintEnabled = enable;
+  }
+
+  function updateMintWithSigEnabled(bool _mintWithSigEnabled) public onlyOwner {
+    mintWithSigEnabled = _mintWithSigEnabled;
+  }
+
+  function updateMaxPerUser(uint8 _maxPerUser) public onlyOwner {
+    maxPerUser = _maxPerUser;
+  }
+
+  function updateNftContrcat(IMRC721 _newAddress) public onlyOwner {
+    nftContract = IMRC721(_newAddress);
+  }
+
+  function updateSigner(address newSigner) public onlyOwner {
+    signer = newSigner;
   }
 
   // allows the owner to withdraw tokens
