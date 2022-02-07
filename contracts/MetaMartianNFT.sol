@@ -11,6 +11,6 @@ contract MetaMartianNFT is MRC721{
     	"MMN",
         "https://mmac-meta-martian.communitynftproject.io/"
     ){
-    	
+    	_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 }
