@@ -224,8 +224,13 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   function addToken(uint256 tokenId, address tokenAddress, bool _mintable)
         external
         onlyRole(TOKEN_ADDER_ROLE){
+
+        require(ids[tokenAddress] == 0, 'already exist');
+
         tokens[tokenId] = tokenAddress;
         mintable[tokenId] = _mintable;
+
+        ids[tokenAddress] = tokenId;
 
         emit AddToken(tokenAddress, tokenId, _mintable);
   }
