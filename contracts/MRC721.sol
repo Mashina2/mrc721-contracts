@@ -17,6 +17,7 @@ contract MRC721 is ERC721Enumerable, AccessControl{
         string memory _uri
     ) ERC721(_name, _symbol){
         _baseTokenURI = _uri;
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
 
