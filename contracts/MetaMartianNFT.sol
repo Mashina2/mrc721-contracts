@@ -5,6 +5,8 @@ import "./MRC721.sol";
 
 contract MetaMartianNFT is MRC721{
 
+	uint256 maxSupply = 4004;
+
 	constructor(
     ) MRC721(
     	"Meta Martian NFT", 
@@ -13,5 +15,12 @@ contract MetaMartianNFT is MRC721{
     ){
     	_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     	_setupRole(MINTER_ROLE, msg.sender);
+    }
+
+    function _beforeMint(
+        address to,
+        uint256 id
+    ) internal virtual override {
+    	require(totalSupply() <= maxSupply, "> maxSupply");
     }
 }

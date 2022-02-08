@@ -15,7 +15,6 @@ contract MRC721Minter is Ownable {
   bool public mintEnabled = false;
   bool public mintWithSigEnabled = true;
   uint8 public maxPerUser = 20;
-  uint public constant MAX_SUPPLY = 4004;
 
   IMRC721 public nftContract;
   address public signer;
@@ -47,9 +46,12 @@ contract MRC721Minter is Ownable {
   function mint(address _to, uint _count, bytes calldata sig)
     checkSig(_to,_count, sig) public payable {
     require(_count <= maxPerUser, "> maxPerUser");
-    require(nftContract.totalSupply() < MAX_SUPPLY, "Ended");
-    require(nftContract.totalSupply() + _count <= MAX_SUPPLY, ">limit");
     require(msg.value >= price(_count), "!value");
+
+    // on private sale, each user can send just one tx
+    require(mintEnabled || nftContract.balanceOf(_to) == 0,
+      "duplicate tx"
+    );
     _mint(_to, _count);
   }
 

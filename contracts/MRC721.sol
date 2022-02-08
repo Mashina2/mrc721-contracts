@@ -21,6 +21,7 @@ contract MRC721 is ERC721Enumerable, AccessControl{
 
 
     function mint(address to, uint256 id) external onlyRole(MINTER_ROLE){
+        _beforeMint(to, id);
         _mint(to, id);
     }
 
@@ -45,4 +46,9 @@ contract MRC721 is ERC721Enumerable, AccessControl{
     function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
+
+    function _beforeMint(
+        address to,
+        uint256 id
+    ) internal virtual {}
 }
