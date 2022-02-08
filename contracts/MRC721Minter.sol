@@ -10,11 +10,12 @@ contract MRC721Minter is Ownable {
 
   using ECDSA for bytes32;
 
-  //TODO: let owner edit all
+
   uint256 public unitPrice = 10000000000000000; // 0.01 ether
   bool public mintEnabled = false;
   bool public mintWithSigEnabled = true;
   uint8 public maxPerUser = 20;
+  uint public constant MAX_SUPPLY = 4004;
 
   IMRC721 public nftContract;
   address public signer;
@@ -43,9 +44,11 @@ contract MRC721Minter is Ownable {
     signer = _signer;
   }
 
-  function mint(address _to, uint _count, bytes calldata sig) 
+  function mint(address _to, uint _count, bytes calldata sig)
     checkSig(_to,_count, sig) public payable {
     require(_count <= maxPerUser, "> maxPerUser");
+    require(nftContract.totalSupply() < MAX_SUPPLY, "Ended");
+    require(nftContract.totalSupply() + _count <= MAX_SUPPLY, ">limit");
     require(msg.value >= price(_count), "!value");
     _mint(_to, _count);
   }
