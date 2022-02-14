@@ -1,14 +1,16 @@
-# Muon bridge conntracts
+# MRC721 Contracts
 
 # Compile
 $ npm install  
 $ ./node_modules/.bin/truffle compile  
 
-# Run tests  
-1- Install & run ganache-cli  
-  
-2- $ ./node_modules/.bin/truffle tests  
+# Deploy and Test
 
-# Test specific file
-$ ./node_modules/.bin/truffle test --network development --show-events ./test/--path to the file--/
-# mrc721-contracts
+1- Deploy MRC721Bridge.sol  
+2- Deploy a MRC721 NFT(e.g MRC721TestNFT.sol)  
+3- Grant MINTER_ROLE to the MRC721Bridge on the NFT contract  
+4- Grant TOKEN_ADDER_ROLE to your address  
+5- Call AddToken on MRC721Bridge and add the NFT contract as the first supported NFT  
+  
+Note: Each NFT contract should have a unique ID on all chains
+
