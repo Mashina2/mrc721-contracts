@@ -153,12 +153,13 @@ module.exports = {
       provider: () =>
         new HDWalletProvider(
           process.env.PK,
-          'https://rpc-mainnet.maticvigil.com/'
+          'https://polygon-rpc.com/'
         ),
       network_id: 137,
       confirmations: 2,
       timeoutBlocks: 200,
       gas: 5500000,
+      gasPrice: 40000000000,
       skipDryRun: true
     },
     mumbai: {

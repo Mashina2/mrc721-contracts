@@ -5,7 +5,7 @@ import "./MRC721.sol";
 
 contract MetaMartianNFT is MRC721{
 
-	uint256 maxSupply = 4004;
+	uint256 public maxSupply = 4004;
 
 	constructor(
     ) MRC721(
