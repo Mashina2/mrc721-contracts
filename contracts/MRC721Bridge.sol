@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./IMuonV02.sol";
-import "./IMRC721.sol";
+import "./interfaces/IMuonV02.sol";
+import "./interfaces/IMRC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
-import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract MRC721Bridge is AccessControl, IERC721Receiver {
-  
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
   /**
@@ -30,17 +29,17 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
   IMuonV02 public muon;
 
-  // we assign a unique ID to each chain (default is CHAIN-ID)
+  // we assign a unique ID to each chain (default is chainId)
   uint256 public network;
 
   // tokenId => tokenContractAddress
   mapping(uint256 => address) public tokens;
   mapping(address => uint256) public ids;
 
-  // tokenId => isTokenMintable
-  mapping(uint256 => bool) public mintable;
+  // tokenId => isDuplicate
+  mapping(uint256 => bool) public isDuplicate;
 
-  event AddToken(address addr, uint256 tokenId, bool mintable);
+  event AddToken(address addr, uint256 tokenId, bool isDuplicate);
 
   event Deposit(
     uint256 txId
@@ -74,27 +73,45 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   uint256 public bridgeFee = 0.001 ether;
 
   constructor(address _muon) {
-    network = getExecutingChainID();
+    network = getExecutingChainId();
     muon = IMuonV02(_muon);
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
+  function addToken(
+    uint256 tokenId, 
+    address tokenAddress, 
+    bool _isDuplicate
+  ) 
+    external 
+    onlyRole(TOKEN_ADDER_ROLE) 
+  {
+    require(ids[tokenAddress] == 0, 'already exist');
+
+    tokens[tokenId] = tokenAddress;
+    isDuplicate[tokenId] = _isDuplicate;
+
+    ids[tokenAddress] = tokenId;
+
+    emit AddToken(tokenAddress, tokenId, _isDuplicate);
+  }  
+
   function deposit(
     uint256[] calldata nftId,
-    uint256 toChain,
-    uint256 tokenId
+    uint256 tokenId,
+    uint256 toChain
   ) public payable returns (uint256) {
-    require(toChain != network, 'Self Deposit');
-    require(tokens[tokenId] != address(0), '!tokenId');
-    require(msg.value == bridgeFee, "!value");
+    require(toChain != network, "MRC721Bridge: INVALID_DESTINATION");
+    require(tokens[tokenId] != address(0), "MRC721Bridge: INVALID_TOKEN_ID");
+    require(msg.value == bridgeFee, "!MRC721Bridge: INSUFFICIENT_FEE_AMOUNT");
 
     IMRC721 token = IMRC721(tokens[tokenId]);
     
-    if (mintable[tokenId]) {
+    if (isDuplicate[tokenId]) {
       for (uint256 index = 0; index < nftId.length; index++) {
         token.burn(nftId[index]);
       }
-    }else{
+    } else {
       for (uint256 index = 0; index < nftId.length; index++) {
         token.safeTransferFrom(
           address(msg.sender),
@@ -167,7 +184,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
     IMRC721 token = IMRC721(tokens[txParams[2]]);
 
-    if (mintable[txParams[2]]) {
+    if (isDuplicate[txParams[2]]) {
       for (uint256 index = 0; index < nftId.length; index++) {
         token.mint(user, nftId[index]);
       }
@@ -220,25 +237,11 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     nftId = txs[_txId].nftId;
   }
 
-  function addToken(uint256 tokenId, address tokenAddress, bool _mintable)
-        external
-        onlyRole(TOKEN_ADDER_ROLE){
-
-        require(ids[tokenAddress] == 0, 'already exist');
-
-        tokens[tokenId] = tokenAddress;
-        mintable[tokenId] = _mintable;
-
-        ids[tokenAddress] = tokenId;
-
-        emit AddToken(tokenAddress, tokenId, _mintable);
-  }
-
   function getTokenId(address _addr) public view returns (uint256) {
     return ids[_addr];
   }
 
-  function getExecutingChainID() public view returns (uint256) {
+  function getExecutingChainId() public view returns (uint256) {
     uint256 id;
     assembly {
       id := chainid()
