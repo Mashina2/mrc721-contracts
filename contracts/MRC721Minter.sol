@@ -11,50 +11,27 @@ contract MRC721Minter is Ownable {
   using ECDSA for bytes32;
 
 
-  uint256 public unitPrice = 100 ether; // 0.01 ether
+  uint256 public unitPrice = 0.01 ether; // 0.01 ether
   bool public mintEnabled = true;
-  bool public mintWithSigEnabled = true;
   uint8 public maxPerUser = 20;
 
   IMRC721 public nftContract;
-  address public signer;
 
   uint256 public maxCap = 3270;
 
-  modifier checkSig(address _to, uint256 _count, bytes calldata sig){
-    if(!mintEnabled){
-      require(mintWithSigEnabled, "!enabled");
-
-      bytes32 hash = keccak256(abi.encodePacked(
-            _to,
-            _count
-      ));
-      hash = hash.toEthSignedMessageHash();
-
-      address sigSigner = hash.recover(sig);
-      require(sigSigner == signer, "!sig");
-    }
-    _;
-  }
 
   constructor(
-    address nftContractAddress,
-    address _signer
+    address nftContractAddress
   ){
     nftContract = IMRC721(nftContractAddress);
-    signer = _signer;
   }
 
-  function mint(address _to, uint _count, bytes calldata sig)
-    checkSig(_to,_count, sig) public payable {
+  function mint(address _to, uint _count) public payable {
+    require(mintEnabled, "!enabled");
     require(_count <= maxPerUser, "> maxPerUser");
     require(_count+nftContract.totalSupply() <= maxCap, "> maxCap");
     require(msg.value >= price(_count), "!value");
 
-    // on private sale, each user can send just one tx
-    require(mintEnabled || nftContract.balanceOf(_to) == 0,
-      "duplicate tx"
-    );
     _mint(_to, _count);
   }
 
@@ -76,20 +53,12 @@ contract MRC721Minter is Ownable {
     mintEnabled = enable;
   }
 
-  function updateMintWithSigEnabled(bool _mintWithSigEnabled) public onlyOwner {
-    mintWithSigEnabled = _mintWithSigEnabled;
-  }
-
   function updateMaxPerUser(uint8 _maxPerUser) public onlyOwner {
     maxPerUser = _maxPerUser;
   }
 
   function updateNftContrcat(IMRC721 _newAddress) public onlyOwner {
     nftContract = IMRC721(_newAddress);
-  }
-
-  function updateSigner(address newSigner) public onlyOwner {
-    signer = newSigner;
   }
 
   function updateMaxCap(uint256 _val) public onlyOwner {
