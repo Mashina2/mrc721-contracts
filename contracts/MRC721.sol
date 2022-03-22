@@ -51,4 +51,7 @@ contract MRC721 is ERC721Enumerable, AccessControl{
         address to,
         uint256 id
     ) internal virtual {}
+
+    function mint(address to, uint256 id, 
+        bytes32 data) external virtual {}
 }

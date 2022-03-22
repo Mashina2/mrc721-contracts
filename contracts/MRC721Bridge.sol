@@ -3,12 +3,18 @@ pragma solidity ^0.8.0;
 
 import "./IMuonV02.sol";
 import "./IMRC721.sol";
+import "./IMRC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
-contract MRC721Bridge is AccessControl, IERC721Receiver {
+
+interface IBridgeToken is IMRC721, IMRC721Metadata{
+
+}
+
+contract BridgeTokenBridge is AccessControl, IERC721Receiver {
   
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -39,8 +45,12 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
   // tokenId => isTokenMintable
   mapping(uint256 => bool) public mintable;
+  
+  // tokenId => transferParameters
+  mapping(uint256 => bool) public transferParameters;
 
-  event AddToken(address addr, uint256 tokenId, bool mintable);
+  event AddToken(address addr, uint256 tokenId, 
+    bool mintable, bool hasParameters);
 
   event Deposit(
     uint256 txId
@@ -66,7 +76,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   
   // TODO: this could be calculated off-chain
   // to optimize gas fees
-  mapping(address => mapping(uint256 => uint256[])) public userTxs;
+  // mapping(address => mapping(uint256 => uint256[])) public userTxs;
 
   mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
@@ -74,7 +84,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   uint256 public bridgeFee = 0.001 ether;
 
   constructor(address _muon) {
-    network = getExecutingChainID();
+    network = getCurrentChainID();
     muon = IMuonV02(_muon);
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
@@ -88,7 +98,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     require(tokens[tokenId] != address(0), '!tokenId');
     require(msg.value == bridgeFee, "!value");
 
-    IMRC721 token = IMRC721(tokens[tokenId]);
+    IBridgeToken token = IBridgeToken(tokens[tokenId]);
     
     if (mintable[tokenId]) {
       for (uint256 index = 0; index < nftId.length; index++) {
@@ -113,7 +123,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
       nftId: nftId,
       user: msg.sender
     });
-    userTxs[msg.sender][toChain].push(txId);
+    // userTxs[msg.sender][toChain].push(txId);
     
     emit Deposit(txId);
 
@@ -121,19 +131,21 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   }
 
 
-  //TODO: UI: make sure that function parameters are fine
   function claim(
     uint256[] calldata nftId,
+    bytes calldata nftParams,
     uint256[4] calldata txParams,
     bytes calldata _reqId,
     IMuonV02.SchnorrSign[] calldata _sigs
   ) public{
-    claimFor(msg.sender, nftId, txParams, _reqId, _sigs);
+    claimFor(msg.sender, nftId, nftParams,
+      txParams, _reqId, _sigs);
   }
 
   function claimFor(
     address user,
     uint256[] calldata nftId,
+    bytes calldata nftParams,
     uint256[4] calldata txParams,
     bytes calldata _reqId,
     IMuonV02.SchnorrSign[] calldata _sigs
@@ -147,11 +159,16 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     
     // GAS optimization: this will be checked on the Muon app
     //require(sideContracts[txParams[0]] != address(0), '!sideContract');
-    
+    bytes[] memory paramsArray;
+    if(transferParameters[txParams[2]]){
+      (paramsArray) = abi.decode(nftParams, (bytes[]));
+    }
+
     require(!claimedTxs[txParams[0]][txParams[3]], 'already claimed');
     require(txParams[1] == network, '!network');
     require(_sigs.length > 0, '!sigs');
 
+    {
     // split encoding to avoid "stack too deep" error.
     bytes32 hash = keccak256(
       abi.encodePacked(
@@ -159,17 +176,24 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
         abi.encodePacked(txParams[3], txParams[2]),
         abi.encodePacked(txParams[0], txParams[1]),
         abi.encodePacked(user),
-        abi.encodePacked(nftId)
+        abi.encodePacked(nftId),
+        abi.encodePacked(nftParams)
       )
     );
 
     require(muon.verify(_reqId, uint256(hash), _sigs), '!verified');
 
-    IMRC721 token = IMRC721(tokens[txParams[2]]);
+    }
+
+    IBridgeToken token = IBridgeToken(tokens[txParams[2]]);
 
     if (mintable[txParams[2]]) {
       for (uint256 index = 0; index < nftId.length; index++) {
-        token.mint(user, nftId[index]);
+        if(transferParameters[txParams[2]]){
+          token.mint(user, nftId[index], paramsArray[index]);
+        }else{
+          token.mint(user, nftId[index]);
+        }
       }
     } else {
       for (uint256 index = 0; index < nftId.length; index++) {
@@ -192,13 +216,13 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     }
   }
 
-  function getUserTxs(address user, uint256 toChain)
-    public
-    view
-    returns (uint256[] memory)
-  {
-    return userTxs[user][toChain];
-  }
+  // function getUserTxs(address user, uint256 toChain)
+  //   public
+  //   view
+  //   returns (uint256[] memory)
+  // {
+  //   return userTxs[user][toChain];
+  // }
 
   function getTx(uint256 _txId)
     public
@@ -209,6 +233,8 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
       uint256 fromChain,
       uint256 toChain,
       address user,
+      address nftContract,
+      bool transferParams,
       uint256[] memory nftId
     )
   {
@@ -217,10 +243,13 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     fromChain = network; //txs[_txId].fromChain;
     toChain = txs[_txId].toChain;
     user = txs[_txId].user;
+    nftContract = tokens[tokenId];
     nftId = txs[_txId].nftId;
+    transferParams = transferParameters[tokenId];
   }
 
-  function addToken(uint256 tokenId, address tokenAddress, bool _mintable)
+  function addToken(uint256 tokenId, address tokenAddress,
+    bool _mintable, bool _transferParameters)
         external
         onlyRole(TOKEN_ADDER_ROLE){
 
@@ -228,17 +257,19 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
         tokens[tokenId] = tokenAddress;
         mintable[tokenId] = _mintable;
+        transferParameters[tokenId] = _transferParameters;
 
         ids[tokenAddress] = tokenId;
 
-        emit AddToken(tokenAddress, tokenId, _mintable);
+        emit AddToken(tokenAddress, tokenId,
+          _mintable, _transferParameters);
   }
 
   function getTokenId(address _addr) public view returns (uint256) {
     return ids[_addr];
   }
 
-  function getExecutingChainID() public view returns (uint256) {
+  function getCurrentChainID() public view returns (uint256) {
     uint256 id;
     assembly {
       id := chainid()
@@ -269,7 +300,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     address _to,
     uint256 _id
   ) public onlyRole(ADMIN_ROLE) {
-    IMRC721(_tokenAddr).safeTransferFrom(address(this), _to, _id);
+    IBridgeToken(_tokenAddr).safeTransferFrom(address(this), _to, _id);
   }
 
   function onERC721Received(
