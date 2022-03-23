@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./MRC721.sol";
 import "./MRC721Metadata.sol";
 
-contract MRC721TestNFT is MRC721, MRC721Metadata{
+contract MRC721WithParamsTest is MRC721, MRC721Metadata{
 
     struct NFTParam{
         bool boolParam;
