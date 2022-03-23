@@ -14,7 +14,7 @@ interface IBridgeToken is IMRC721, IMRC721Metadata{
 
 }
 
-contract BridgeTokenBridge is AccessControl, IERC721Receiver {
+contract MRC721Bridge is AccessControl, IERC721Receiver {
   
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
