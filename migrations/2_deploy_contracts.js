@@ -11,10 +11,12 @@ var randomNFT = artifacts.require('./MuonRandomNFT.sol');
 
 var testHero = artifacts.require('./TestHero.sol');
 
+var MRC721WithParamsTest = artifacts.require("./MRC721WithParamsTest.sol");
+
 module.exports = async function(deployer) {
 	// await deployer.deploy(cnpe);
 
-	await deployer.deploy(testHero);
+	await deployer.deploy(MRC721WithParamsTest);
 
 	//await deployer.deploy(MRC721Minter, "0xd8EBe57C68Cd367EFDF8f72d780EFC24756186f9");
 

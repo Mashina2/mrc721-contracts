@@ -46,4 +46,21 @@ contract MRC721WithParamsTest is MRC721, MRC721Metadata{
         params[id].p1 = _p1;
         params[id].p2 = _p2;   
     }
+
+    function encodeParams(uint256 id) override public view returns(bytes memory){
+        return abi.encode(
+            params[id].boolParam,
+            params[id].p1,
+            params[id].p2
+        );
+    }
+
+    function decodeParams(bytes calldata data) public view returns(
+        bool _b, uint256 _p1, uint256 _p2
+    ){
+        (bool _b, uint256 _p1, uint256 _p2) = abi.decode(
+            data,
+            (bool, uint256, uint256)
+        );
+    }
 }

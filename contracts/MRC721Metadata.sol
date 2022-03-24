@@ -7,7 +7,7 @@ abstract contract MRC721Metadata{
     function mint(address to, uint256 id, 
     	bytes calldata data) external virtual{}
 
-    function encodeParams(uint256 id) virtual public view returns(bytes memory){}
+    function encodeParams(uint256 id) virtual public view returns(bytes memory);
     
     function encodeParams(uint256[] calldata ids) public view returns(bytes memory){
     	bytes[] memory params = new bytes[](ids.length);
