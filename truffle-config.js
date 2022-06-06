@@ -81,6 +81,13 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
 
+    mainnet: {
+      network_id: 1, // Ropsten's id
+      confirmations: 2, // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+    },
+
     rinkeby: {
       provider: () =>
         new HDWalletProvider(
@@ -111,7 +118,8 @@ module.exports = {
       provider: () =>
         new HDWalletProvider(
           process.env.MNEMONIC || process.env.PK || missing_privateKey(),
-          `https://bsc-dataseed1.binance.org`
+          "https://rpc.ankr.com/bsc/bb16818498f786afd5eef9dae23804758f6c2e56149fb762ec5beea68a45646c"
+          //`https://bsc-dataseed1.binance.org`
         ),
       network_id: 56,
       confirmations: 2,

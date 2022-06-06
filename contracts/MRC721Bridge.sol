@@ -19,8 +19,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
   /**
-   * @dev `AddToken` and `setSideContract`
-   * are using this role. 
+   * @dev `AddToken` and `removeToken` are using this role. 
    *
    * This role could be granted another contract to let a Muon app
    * manage the tokens. The token deployer will be verified by
@@ -36,7 +35,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
   IMuonV02 public muon;
 
-  // we assign a unique ID to each chain (default is CHAIN-ID)
+  // a unique ID will be assigned to each chain (default is CHAIN-ID)
   uint256 public network;
 
   // tokenId => tokenContractAddress
@@ -63,10 +62,8 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   );
 
   struct TX {
-    //uint256 txId;
     uint256 tokenId;
     uint256[] nftId;
-    //uint256 fromChain;
     uint256 toChain;
     address user;
   }
@@ -74,19 +71,16 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
   mapping(uint256 => TX) public txs;
   
-  // TODO: this could be calculated off-chain
-  // to optimize gas fees
-  // mapping(address => mapping(uint256 => uint256[])) public userTxs;
-
   mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
   // fee in native token
-  uint256 public bridgeFee = 0.001 ether;
+  uint256 public bridgeFee = 0.0006 ether;
 
   constructor(address _muon) {
     network = getCurrentChainID();
     muon = IMuonV02(_muon);
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _setupRole(ADMIN_ROLE, msg.sender);
   }
 
   function deposit(
@@ -102,10 +96,22 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     
     if (mintable[tokenId]) {
       for (uint256 index = 0; index < nftId.length; index++) {
+        address owner = token.ownerOf(nftId[index]);
+        require(
+          owner == msg.sender ||
+          token.isApprovedForAll(owner, msg.sender),
+          "!owner"
+        );
         token.burn(nftId[index]);
       }
     }else{
       for (uint256 index = 0; index < nftId.length; index++) {
+        address owner = token.ownerOf(nftId[index]);
+        require(
+          owner == msg.sender ||
+          token.isApprovedForAll(owner, msg.sender),
+          "!owner"
+        );
         token.safeTransferFrom(
           address(msg.sender),
           address(this),
@@ -116,14 +122,11 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
     uint256 txId = ++lastTxId;
     txs[txId] = TX({
-      //txId: txId,
       tokenId: tokenId,
-      //fromChain: network,
       toChain: toChain,
       nftId: nftId,
       user: msg.sender
     });
-    // userTxs[msg.sender][toChain].push(txId);
     
     emit Deposit(txId);
 
@@ -216,14 +219,6 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
     }
   }
 
-  // function getUserTxs(address user, uint256 toChain)
-  //   public
-  //   view
-  //   returns (uint256[] memory)
-  // {
-  //   return userTxs[user][toChain];
-  // }
-
   function getTx(uint256 _txId)
     public
     view
@@ -240,7 +235,7 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
   {
     txId = _txId;
     tokenId = txs[_txId].tokenId;
-    fromChain = network; //txs[_txId].fromChain;
+    fromChain = network;
     toChain = txs[_txId].toChain;
     user = txs[_txId].user;
     nftContract = tokens[tokenId];
@@ -265,6 +260,13 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
           _mintable, _transferParameters);
   }
 
+  function removeToken(uint256 tokenId, address tokenAddress)
+    external onlyRole(TOKEN_ADDER_ROLE){
+    require(ids[tokenAddress] == tokenId, 'id!=addr');
+    ids[tokenAddress] = 0;
+    tokens[tokenId] = address(0);
+  }
+
   function getTokenId(address _addr) public view returns (uint256) {
     return ids[_addr];
   }
@@ -283,6 +285,10 @@ contract MRC721Bridge is AccessControl, IERC721Receiver {
 
   function setBridgeFee(uint256 _val) public onlyRole(ADMIN_ROLE){
     bridgeFee = _val;
+  }
+
+  function setMuonContract(address _addr) public onlyRole(ADMIN_ROLE){
+    muon = IMuonV02(_addr);
   }
 
   function adminWithdrawTokens(uint256 amount,
