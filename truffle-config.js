@@ -118,8 +118,7 @@ module.exports = {
       provider: () =>
         new HDWalletProvider(
           process.env.MNEMONIC || process.env.PK || missing_privateKey(),
-          "https://rpc.ankr.com/bsc/bb16818498f786afd5eef9dae23804758f6c2e56149fb762ec5beea68a45646c"
-          //`https://bsc-dataseed1.binance.org`
+          `https://bsc-dataseed1.binance.org`
         ),
       network_id: 56,
       confirmations: 2,
